@@ -25,12 +25,31 @@
 			'yuva420p',
 			'-s',
 			'512x512',
+			'-row-mt',
+			'1',
 			'output.webm'
 		);
 		const data = ffmpeg.FS('readFile', 'output.webm');
 		const video = document.getElementById('player');
-		video.src = URL.createObjectURL(new Blob([data.buffer], { type: 'video/webm' }));
+		const source = document.createElement('source');
+		const url = URL.createObjectURL(new Blob([data.buffer]));
+		source.setAttribute('src', url);
+		source.setAttribute('type', 'video/webm');
+
+		video.appendChild(source);
+		video.load();
+		video.play();
+		clickFunction(url);
 	};
+
+	function clickFunction(url) {
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = crypto.randomUUID() + '.webm';
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+	}
 </script>
 
 <video id="player" controls />
