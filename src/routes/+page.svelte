@@ -1,73 +1,120 @@
-<script>
+<script lang="ts">
 	import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
 	import { onMount } from 'svelte';
 	import '98.css';
+	import Modal from '$lib/components/Modal.svelte';
+	import emitter from '$lib/emitter';
 
-	onMount(() => {
-		document.getElementById('uploader').addEventListener('change', transcode);
-	});
+	let encodedFiles: {
+		id: string;
+		filename: string;
+		length: number;
+		pts: number;
+		bytes: number;
+		ext: string;
+		status: 'SUCCESS' | 'ERROR';
+		blob: Blob;
+		bitrate: number;
+	} = [];
+	$: encodedFiles;
 
-	const transcode = async ({ target: { files } }) => {
+	let bitrate = 256;
+
+	const submit = async () => {
 		const ffmpeg = createFFmpeg();
+
 		ffmpeg.setLogger(({ type, message }) => {
-			console.log({ type, message });
 			const textarea = window.document.getElementById('text19');
 			textarea.value += `${type}: ${message}\n`;
 			textarea.scrollTop = textarea.scrollHeight;
 		});
-		const { name } = files[0];
+
+		const files = document.getElementById('uploader').files;
+
+		if (files.length === 0) {
+			return emitter.emit('openModal', { type: 'error', message: '파일을 선택해주세요.' });
+		}
+
 		await ffmpeg.load();
-		ffmpeg.FS('writeFile', name, await fetchFile(files[0]));
-		await ffmpeg.run(
-			'-i',
-			name,
-			'-row-mt',
-			'1',
-			'-r',
-			'30',
-			'-t',
-			'2.99',
-			'-an',
-			'-c:v',
-			'libvpx-vp9',
-			'-pix_fmt',
-			'yuva420p',
-			'-vf',
-			'scale=512:512',
-			'-b:v',
-			'256k',
-			'output.webm'
-		);
-		const data = ffmpeg.FS('readFile', 'output.webm');
-		const blob = new Blob([data.buffer], { type: 'video/webm' });
-		// const video = window.document.querySelector('video#player');
 
-		// const source = video?.querySelector('source');
-		// const url = window.URL.createObjectURL(blob);
+		for (const file of files) {
+			ffmpeg.FS('writeFile', file.name, await fetchFile(file));
 
-		// source.setAttribute('src', url);
-		// video.load();
-		// video
-		// 	.play()
-		// 	.then(
-		// 		(ful) => console.log(ful),
-		// 		(rej) => console.log(rej)
-		// 	)
-		// 	.catch((err) => console.log(err));
-		// clickFunction(url);
+			// TODO: ffmpeg
+
+			await ffmpeg.run(
+				'-i',
+				file.name,
+				'-row-mt',
+				'1',
+				'-r',
+				'30',
+				// '-pattern_type',
+				// 'glob',
+				'-t',
+				'2.99',
+				'-an',
+				'-c:v',
+				'libvpx-vp9',
+				'-pix_fmt',
+				'yuva420p',
+				// '-vf',
+				// 'scale=512:512',
+				'-s',
+				'512x512',
+				'-b:v',
+				'256',
+				'output.webm'
+			);
+			const data = ffmpeg.FS('readFile', 'output.webm');
+			const blob = new Blob([data.buffer], { type: 'video/webm' });
+			const encodedFile = {
+				id: crypto.randomUUID(),
+				filename: file.name,
+				length: 0, // TODO
+				pts: 0, // TODO
+				bytes: blob.size,
+				ext: 'webm',
+				status: 'SUCCESS',
+				blob,
+				bitrate
+			};
+			encodedFiles = [...encodedFiles, encodedFile];
+		}
 	};
 
-	function clickFunction(url) {
+	const reset = () => {
+		const uploader = window.document.getElementById('uploader');
+		uploader.value = '';
+
+		const textarea = window.document.getElementById('text19');
+		textarea.value = '';
+	};
+
+	const downloadAll = () => {
+		for (const file of encodedFiles) {
+			download(file.blob);
+		}
+	};
+
+	const deleteAll = () => {
+		encodedFiles = [];
+	};
+
+	const download = (blob: Blob) => {
+		const url = window.URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
 		a.download = crypto.randomUUID() + '.webm';
 		document.body.appendChild(a);
 		a.click();
 		document.body.removeChild(a);
-	}
+	};
 </script>
 
-<div class="window container" style="width:280px;">
+<Modal />
+
+<div class="window container" style="width:280px; margin: 0 auto;">
 	<div class="title-bar">
 		<div class="title-bar-text">텔레그램 스티커 생성기</div>
 		<div class="title-bar-controls">
@@ -78,8 +125,7 @@
 	</div>
 	<div class="window-body" style="overflow:hidden;">
 		<menu role="tablist">
-			<!-- <li role="tab" aria-selected="false"><a href="#tabs">직접업로드</a></li> -->
-			<li role="tab" aria-selected="true"><a href="#tabs">아카콘</a></li>
+			<li role="tab" aria-selected="true"><a href="#tabs">수동</a></li>
 			<!-- <li role="tab" aria-selected="false"><a href="#tabs">디시콘</a></li>
 			<li role="tab" aria-selected="false"><a href="#tabs">노벨콘</a></li>
 			<li role="tab" aria-selected="false"><a href="#tabs">라인콘</a></li> -->
@@ -92,22 +138,23 @@
 					<li>품질을 조절해서 스티커의 용량을 조절해주세요.</li>
 					<li>움직이는 스티커의 경우 256kb가 최대입니다.</li>
 				</ul>
+
+				<!-- <div class="field-row">
+					<label for="text17">아카콘 번호</label>
+					<input id="text17" type="text" />
+				</div> -->
+				<input type="file" id="uploader" accept="image/*,video/*" multiple />
 			</div>
 		</div>
 
 		<br />
-
-		<div class="field-row">
-			<label for="text17">아카콘 번호</label>
-			<input id="text17" type="text" />
-		</div>
 
 		<br />
 
 		<div class="field-row" style="width: 100%">
 			<label for="range26">품질</label>
 			<label for="range26">64k</label>
-			<input id="range26" type="range" min="1" max="11" value="5" />
+			<input id="range26" type="range" min="64" max="512" bind:value={bitrate} />
 			<label for="range26">512k</label>
 		</div>
 
@@ -124,100 +171,55 @@
 
 		<br />
 
-		<input type="file" id="uploader" />
 		<div style="display: flex; width: 100%;">
-			<input style="flex:1;" type="submit" />
-			<input style="flex:1;" type="reset" />
+			<input style="flex:1;" type="submit" on:click={submit} />
+			<input style="flex:1;" type="reset" on:click={reset} />
 		</div>
 
 		<br />
 
 		<div class="field-row-stacked" style="width: 100%">
-			<label for="text19">인코딩 로그</label>
+			<label for="text19">로그</label>
 			<textarea id="text19" rows="8" value="" readonly />
 		</div>
 
 		<br />
 
-		hihi
-		<div class="sunken-panel" style="height: 120px; width: 100%;">
+		<label for="status">상태</label>
+		<div class="sunken-panel" id="status" style="height: 120px; width: 100%;">
 			<table class="interactive">
 				<thead>
 					<tr>
-						<th>Name</th>
-						<th>Version</th>
-						<th>Company</th>
+						<th>파일이름</th>
+						<th>길이</th>
+						<th>배속</th>
+						<th>용량</th>
+						<th>비트레이트</th>
+						<th>상태</th>
 					</tr>
 				</thead>
 				<tbody>
-					<tr>
-						<td>MySQL ODBC 3.51 Driver</td>
-						<td>3.51.11.00</td>
-						<td>MySQL AB</td>
-					</tr>
-					<tr>
-						<td>SQL Server</td>
-						<td>3.70.06.23</td>
-						<td>Microsoft Corporation</td>
-					</tr>
-					<tr>
-						<td>SQL Server</td>
-						<td>3.70.06.23</td>
-						<td>Microsoft Corporation</td>
-					</tr>
-					<tr>
-						<td>SQL Server</td>
-						<td>3.70.06.23</td>
-						<td>Microsoft Corporation</td>
-					</tr>
-					<tr>
-						<td>SQL Server</td>
-						<td>3.70.06.23</td>
-						<td>Microsoft Corporation</td>
-					</tr>
-					<tr>
-						<td>SQL Server</td>
-						<td>3.70.06.23</td>
-						<td>Microsoft Corporation</td>
-					</tr>
-					<tr>
-						<td>SQL Server</td>
-						<td>3.70.06.23</td>
-						<td>Microsoft Corporation</td>
-					</tr>
-					<tr>
-						<td>SQL Server</td>
-						<td>3.70.06.23</td>
-						<td>Microsoft Corporation</td>
-					</tr>
-					<tr>
-						<td>SQL Server</td>
-						<td>3.70.06.23</td>
-						<td>Microsoft Corporation</td>
-					</tr>
-					<tr>
-						<td>SQL Server</td>
-						<td>3.70.06.23</td>
-						<td>Microsoft Corporation</td>
-					</tr>
+					{#each encodedFiles as file (file.id)}
+						<tr
+							on:click={() => {
+								// TODO: 선택삭제
+								alert('삭제하시겠습니까? - TODO: 작업중');
+							}}
+						>
+							<td>{file.filename}</td>
+							<td>{file.length}</td>
+							<td>{file.pts}</td>
+							<td>{file.bytes}</td>
+							<td>{file.bitrate}</td>
+							<td>{file.status}</td>
+						</tr>
+					{/each}
 				</tbody>
 			</table>
 		</div>
-		<div class="field-row-stacked" style="width: 100%">
-			<label for="text20">@misa-alasa 신규 스티커 작성 코드</label>
-			<textarea
-				id="text20"
-				rows="8"
-				value="/newvideo 12351235,43623462346,54856856,13452345234,632346234,12351253"
-			/>
-		</div>
-		<div class="field-row-stacked" style="width: 100%">
-			<label for="text20">@misa-alasa 스티커 추가 작성 코드</label>
-			<textarea
-				id="text21"
-				rows="8"
-				value="/addsticker misa-alasa-arca-1234 12351235,43623462346,54856856,13452345234,632346234,12351253"
-			/>
+		<div style="display: flex;">
+			<button style="flex: 1 1 0;" on:click={downloadAll}>모두 다운로드</button>
+			<button style="flex: 1 1 0;" on:click={deleteAll}>모두 삭제</button>
 		</div>
 	</div>
 </div>
@@ -225,9 +227,5 @@
 <style>
 	:global(body) {
 		background: #dfdfdf;
-	}
-
-	.container {
-		width: 32rem;
 	}
 </style>
