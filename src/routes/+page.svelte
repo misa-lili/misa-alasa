@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
-	import { onMount } from 'svelte';
 	import '98.css';
 	import Modal from '$lib/components/Modal.svelte';
 	import emitter from '$lib/emitter';
@@ -38,21 +37,24 @@
 		await ffmpeg.load();
 
 		for (const file of files) {
+			const time = 2.98;
+			const duration = (await checkDuration(file)) || 0;
+			const pts = duration > time ? duration / time : 1;
+
 			ffmpeg.FS('writeFile', file.name, await fetchFile(file));
-
-			// TODO: ffmpeg
-
 			await ffmpeg.run(
 				'-i',
 				file.name,
 				'-row-mt',
 				'1',
+				// '-filter:v',
+				// `setpts=PTS/${pts}`,
 				'-r',
 				'30',
 				// '-pattern_type',
 				// 'glob',
 				'-t',
-				'2.99',
+				`${time}`,
 				'-an',
 				'-c:v',
 				'libvpx-vp9',
@@ -63,7 +65,7 @@
 				'-s',
 				'512x512',
 				'-b:v',
-				'256',
+				`${bitrate}`,
 				'output.webm'
 			);
 			const data = ffmpeg.FS('readFile', 'output.webm');
@@ -71,8 +73,8 @@
 			const encodedFile = {
 				id: crypto.randomUUID(),
 				filename: file.name,
-				length: 0, // TODO
-				pts: 0, // TODO
+				length: duration < time ? duration : time, // TODO
+				pts, // TODO
 				bytes: blob.size,
 				ext: 'webm',
 				status: 'SUCCESS',
@@ -81,6 +83,25 @@
 			};
 			encodedFiles = [...encodedFiles, encodedFile];
 		}
+	};
+
+	const checkDuration = (file: Blob): Promise<number> => {
+		return new Promise((resolve) => {
+			if (file.type.includes('image')) {
+				resolve(0);
+			}
+			var video = document.createElement('video');
+			video.preload = 'metadata';
+
+			video.onloadedmetadata = () => {
+				window.URL.revokeObjectURL(video.src);
+				var duration = video.duration;
+				video.remove();
+				resolve(duration);
+			};
+
+			video.src = URL.createObjectURL(file);
+		});
 	};
 
 	const reset = () => {
