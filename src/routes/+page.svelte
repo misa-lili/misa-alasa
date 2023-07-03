@@ -83,6 +83,9 @@
 				blob,
 				bitrate
 			};
+			if (bytes > 255000) {
+				return emitter.emit('openModal', { type: 'error', message: '256kb가 넘습니다.' });
+			}
 			encodedFiles = [...encodedFiles, encodedFile];
 		}
 	};
@@ -124,6 +127,10 @@
 		encodedFiles = [];
 	};
 
+	const deleteFile = (id: string) => {
+		encodedFiles = encodedFiles.filter((file) => file.id !== id);
+	};
+
 	const download = (blob: Blob) => {
 		const url = window.URL.createObjectURL(blob);
 		const a = document.createElement('a');
@@ -159,7 +166,19 @@
 				<ul>
 					<li>스티커 셋의 최대 크기는 50개 입니다.</li>
 					<li>품질을 조절해서 스티커의 용량을 조절해주세요.</li>
-					<li>움직이는 스티커의 경우 256kb가 최대입니다.</li>
+					<li>스티커의 용량은 256kb가 최대입니다.</li>
+					<li>변환 후 다운로드를 해주세요.</li>
+					<li>텔레그램에서 @Stickers 봇과 대화를 시작하세요.</li>
+					<li>
+						봇에게 /newvideo 명령어를 실행한 후, 변환하고 다운받은 .webm 파일을 파일 전송하세요.
+					</li>
+					<li>파일을 전송 한 후 적절한 이모티콘을 입력하세요.</li>
+					<li>원하시는 만큼 반복하세요. 50개까지 가능합니다.</li>
+					<li>파일의 비율은 1:1 이 아닐경우 찌그러질 수 있습니다.</li>
+					<li>
+						동영상일 경우 텔레그램은 3초가 최대이기 때문에 3초가 넘는 영상은 속도가 빨라지므로 미리
+						잘라내야합니다.
+					</li>
 				</ul>
 
 				<!-- <div class="field-row">
@@ -225,8 +244,10 @@
 					{#each encodedFiles as file (file.id)}
 						<tr
 							on:click={() => {
-								// TODO: 선택삭제
-								alert('삭제하시겠습니까? - TODO: 작업중');
+								// TODO: 모달로 변경
+								if (confirm('삭제하시겠습니까?')) {
+									deleteFile(file.id);
+								}
 							}}
 						>
 							<td>{file.filename}</td>
