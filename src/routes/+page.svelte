@@ -3,6 +3,7 @@
 	import '98.css';
 	import Modal from '$lib/components/Modal.svelte';
 	import emitter from '$lib/emitter';
+	import { onMount } from 'svelte';
 
 	let encodedFiles: {
 		id: string;
@@ -18,25 +19,26 @@
 	$: encodedFiles;
 
 	let bitrate = 256;
+	let ffmpeg = null;
 
-	const submit = async () => {
-		const ffmpeg = createFFmpeg();
-
+	onMount(async () => {
+		ffmpeg = createFFmpeg();
 		ffmpeg.setLogger(({ type, message }) => {
 			const textarea = window.document.getElementById('text19');
 			textarea.value += `${type}: ${message}\n`;
 			textarea.scrollTop = textarea.scrollHeight;
 		});
+		await ffmpeg.load();
+	});
 
+	const submit = async () => {
 		const files = document.getElementById('uploader').files;
 
 		if (files.length === 0) {
 			return emitter.emit('openModal', { type: 'error', message: '파일을 선택해주세요.' });
 		}
 
-		await ffmpeg.load();
-
-		for (const file of files) {
+		for await (const file of files) {
 			const time = 2.98;
 			const duration = (await checkDuration(file)) || 0;
 			const pts = duration > time ? duration / time : 1;
@@ -47,8 +49,8 @@
 				file.name,
 				'-row-mt',
 				'1',
-				// '-filter:v',
-				// `setpts=PTS/${pts}`,
+				'-filter:v',
+				`setpts=PTS/${pts}`,
 				'-r',
 				'30',
 				// '-pattern_type',
@@ -73,8 +75,8 @@
 			const encodedFile = {
 				id: crypto.randomUUID(),
 				filename: file.name,
-				length: duration < time ? duration : time, // TODO
-				pts, // TODO
+				length: duration < time ? duration : time,
+				pts,
 				bytes: blob.size,
 				ext: 'webm',
 				status: 'SUCCESS',
