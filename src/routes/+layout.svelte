@@ -56,8 +56,6 @@
 				`setpts=PTS/${pts}`,
 				'-r',
 				'30',
-				// '-pattern_type',
-				// 'glob',
 				'-t',
 				`${time}`,
 				'-an',
@@ -65,8 +63,6 @@
 				'libvpx-vp9',
 				'-pix_fmt',
 				'yuva420p',
-				// '-vf',
-				// 'scale=512:512',
 				'-s',
 				'512x512',
 				'-b:v',
@@ -121,6 +117,14 @@
 	};
 
 	const downloadAll = async () => {
+		if (encodedFiles.length === 0) {
+			return emitter.emit('openModal', { type: 'error', message: '파일을 선택해주세요.' });
+		}
+
+		if (encodedFiles.length === 1) {
+			return download(encodedFiles[0].blob);
+		}
+
 		let zip = new JSZip();
 
 		const blobs = encodedFiles.map((f) => f.blob);
@@ -128,7 +132,7 @@
 
 		for (let i = 0; i < blobs.length; i++) {
 			let blobData = await blobs[i].arrayBuffer();
-			zip.file(filenames[i], blobData);
+			zip.file(filenames[i] + '.webm', blobData);
 		}
 
 		let zipBlob = await zip.generateAsync({ type: 'blob' });
@@ -172,37 +176,15 @@
 	</div>
 	<div class="window-body" style="overflow:hidden;">
 		<menu role="tablist">
-			<li role="tab" aria-selected="true"><a href="#tabs">수동</a></li>
+			<li role="tab" aria-selected="true"><a href="/manual">수동</a></li>
+			<li role="tab" aria-selected="false"><a href="/arca">아카콘</a></li>
 			<!-- <li role="tab" aria-selected="false"><a href="#tabs">디시콘</a></li>
 			<li role="tab" aria-selected="false"><a href="#tabs">노벨콘</a></li>
 			<li role="tab" aria-selected="false"><a href="#tabs">라인콘</a></li> -->
 		</menu>
 		<div class="window" role="tabpanel">
 			<div class="window-body">
-				<p>어디 한번 잘 해보세요!</p>
-				<ul>
-					<li>스티커 셋의 최대 크기는 50개 입니다.</li>
-					<li>품질을 조절해서 스티커의 용량을 조절해주세요.</li>
-					<li>스티커의 용량은 256kb가 최대입니다.</li>
-					<li>변환 후 다운로드를 해주세요.</li>
-					<li>텔레그램에서 @Stickers 봇과 대화를 시작하세요.</li>
-					<li>
-						봇에게 /newvideo 명령어를 실행한 후, 변환하고 다운받은 .webm 파일을 파일 전송하세요.
-					</li>
-					<li>파일을 전송 한 후 적절한 이모티콘을 입력하세요.</li>
-					<li>원하시는 만큼 반복하세요. 50개까지 가능합니다.</li>
-					<li>파일의 비율은 1:1 이 아닐경우 찌그러질 수 있습니다.</li>
-					<li>
-						동영상일 경우 텔레그램은 3초가 최대이기 때문에 3초가 넘는 영상은 속도가 빨라지므로 미리
-						잘라내야합니다.
-					</li>
-				</ul>
-
-				<!-- <div class="field-row">
-					<label for="text17">아카콘 번호</label>
-					<input id="text17" type="text" />
-				</div> -->
-				<input type="file" id="uploader" accept="image/*,video/*" multiple />
+				<slot />
 			</div>
 		</div>
 
