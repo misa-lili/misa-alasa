@@ -1,21 +1,27 @@
 <script lang="ts">
 	import emitter from '$lib/emitter';
-	emitter.on('openModal', (event) => open(event));
+
+	interface OpenModalEvent {
+		type: string;
+		message: string;
+	}
+
+	emitter.on('openModal', (event) => open(event as OpenModalEvent));
 	emitter.on('closeModal', () => close());
 
 	let type = '';
 	let message = '';
 
-	const open = (event) => {
+	const open = (event: OpenModalEvent) => {
 		type = event.type;
 		message = event.message;
 
-		const modal = window.document.getElementById('modal');
+		const modal = window.document.getElementById('modal')!;
 		modal.style.display = 'block';
 	};
 
 	const close = () => {
-		const modal = window.document.getElementById('modal');
+		const modal = window.document.getElementById('modal')!;
 		modal.style.display = 'none';
 	};
 </script>

@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
+	import { createFFmpeg, fetchFile, type FFmpeg } from '@ffmpeg/ffmpeg';
 	import '98.css';
 	import Modal from '$lib/components/Modal.svelte';
 	import emitter from '$lib/emitter';
 	import { onMount } from 'svelte';
 
-	let encodedFiles: {
+	interface EncodedFile {
 		id: string;
 		filename: string;
 		length: number;
@@ -15,16 +15,18 @@
 		status: 'SUCCESS' | 'ERROR';
 		blob: Blob;
 		bitrate: number;
-	} = [];
+	}
+
+	let encodedFiles: EncodedFile[] = [];
 	$: encodedFiles;
 
 	let bitrate = 256;
-	let ffmpeg = null;
+	let ffmpeg: FFmpeg | null = null;
 
 	onMount(async () => {
 		ffmpeg = createFFmpeg();
 		ffmpeg.setLogger(({ type, message }) => {
-			const textarea = window.document.getElementById('text19');
+			const textarea = window.document.getElementById('text19')! as HTMLTextAreaElement;
 			textarea.value += `${type}: ${message}\n`;
 			textarea.scrollTop = textarea.scrollHeight;
 		});
@@ -32,7 +34,7 @@
 	});
 
 	const submit = async () => {
-		const files = document.getElementById('uploader').files;
+		const files = (document.querySelector('input#uploader') as HTMLInputElement).files!;
 
 		if (files.length === 0) {
 			return emitter.emit('openModal', { type: 'error', message: '파일을 선택해주세요.' });
@@ -43,8 +45,8 @@
 			const duration = (await checkDuration(file)) || 0;
 			const pts = duration > time ? duration / time : 1;
 
-			ffmpeg.FS('writeFile', file.name, await fetchFile(file));
-			await ffmpeg.run(
+			ffmpeg!.FS('writeFile', file.name, await fetchFile(file));
+			await ffmpeg!.run(
 				'-i',
 				file.name,
 				'-row-mt',
@@ -70,9 +72,9 @@
 				`${bitrate}`,
 				'output.webm'
 			);
-			const data = ffmpeg.FS('readFile', 'output.webm');
+			const data = ffmpeg!.FS('readFile', 'output.webm');
 			const blob = new Blob([data.buffer], { type: 'video/webm' });
-			const encodedFile = {
+			const encodedFile: EncodedFile = {
 				id: crypto.randomUUID(),
 				filename: file.name,
 				length: duration < time ? duration : time,
@@ -83,7 +85,7 @@
 				blob,
 				bitrate
 			};
-			if (bytes > 255000) {
+			if (blob.size > 255000) {
 				return emitter.emit('openModal', { type: 'error', message: '256kb가 넘습니다.' });
 			}
 			encodedFiles = [...encodedFiles, encodedFile];
@@ -110,11 +112,11 @@
 	};
 
 	const reset = () => {
-		const uploader = window.document.getElementById('uploader');
-		uploader.value = '';
+		const uploader: HTMLInputElement | null = window.document.querySelector('input#uploader');
+		uploader!.value = '';
 
-		const textarea = window.document.getElementById('text19');
-		textarea.value = '';
+		const textarea: HTMLTextAreaElement | null = window.document.querySelector('textarea#text19');
+		textarea!.value = '';
 	};
 
 	const downloadAll = () => {
