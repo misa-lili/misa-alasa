@@ -122,7 +122,7 @@
 		}
 
 		if (encodedFiles.length === 1) {
-			return download(encodedFiles[0].blob);
+			return download(encodedFiles[0].blob, encodedFiles[0].filename);
 		}
 
 		let zip = new JSZip();
@@ -152,14 +152,12 @@
 		encodedFiles = encodedFiles.filter((file) => file.id !== id);
 	};
 
-	const download = (blob: Blob) => {
+	const download = (blob: Blob, filename: string) => {
 		const url = window.URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
-		a.download = crypto.randomUUID() + '.webm';
-		document.body.appendChild(a);
+		a.download = filename + '.webm';
 		a.click();
-		document.body.removeChild(a);
 	};
 </script>
 
