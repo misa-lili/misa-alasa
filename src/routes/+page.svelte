@@ -4,6 +4,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import emitter from '$lib/emitter';
 	import { onMount } from 'svelte';
+	import JSZip from 'jszip';
 
 	interface EncodedFile {
 		id: string;
@@ -119,10 +120,24 @@
 		textarea!.value = '';
 	};
 
-	const downloadAll = () => {
-		for (const file of encodedFiles) {
-			download(file.blob);
+	const downloadAll = async () => {
+		let zip = new JSZip();
+
+		const blobs = encodedFiles.map((f) => f.blob);
+		const filenames = encodedFiles.map((f) => f.filename);
+
+		for (let i = 0; i < blobs.length; i++) {
+			let blobData = await blobs[i].arrayBuffer();
+			zip.file(filenames[i], blobData);
 		}
+
+		let zipBlob = await zip.generateAsync({ type: 'blob' });
+
+		let url = window.URL.createObjectURL(zipBlob);
+		let link = document.createElement('a');
+		link.href = url;
+		link.download = 'files.zip';
+		link.click();
 	};
 
 	const deleteAll = () => {
